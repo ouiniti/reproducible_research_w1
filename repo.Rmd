@@ -1,0 +1,204 @@
+---
+title: "Reproducible Research: Peer Graded Assignment"
+author: "Sheila Amoafo"
+date: "09/09/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Loading and processing the data.
+
+First off, the necessary packages are loaded.
+
+```{r,echo=TRUE}
+library(ggplot2)
+library(dplyr)
+```
+
+Then the data is loaded and examined.
+
+```{r,echo=TRUE}
+activity<-read.csv("activity.csv")
+summary(activity)
+head(activity)
+```
+
+Process the data into a suitable format
+
+```{r,echo=TRUE}
+#remove NAs
+actNA<-is.na(activity$steps)
+actnew<-activity[!actNA,]
+head(actnew)
+```
+
+
+
+
+
+
+
+# Mean total number of steps taken per day
+
+## 1. Total number of steps taken per day
+
+```{r}
+#Select the steps and date column and group by date
+bydate<-actnew %>% select(date,steps) %>% group_by(date) %>% summarise(steps=sum(steps))
+head(bydate)
+```
+
+
+## 2. Histogram of total number of steps taken each day
+
+```{r}
+#Plot the histogram
+hist(bydate$steps, xlab = "Daily Steps", main = "Total Steps per Day",col = "pink",breaks = 20)
+```
+
+
+## 3. Mean and Median of total number of steps taken per day
+
+```{r}
+#calculating the mean of the total number of steps
+mean(bydate$steps)
+
+#calculating the median of the total number of steps
+median(bydate$steps)
+```
+
+
+
+
+
+
+
+# Average Daily Activity Pattern
+
+## 4. Time series plot of the 5-minute interval and the average number of steps
+
+```{r}
+#Select the interval and average steps columns
+byinterval<- actnew %>% select(interval,steps) %>% group_by(interval) %>% summarise(steps = mean(steps))
+
+#plot the time series plot
+ggplot(byinterval, aes(x=interval,y=steps))+geom_line(color= "magenta")+labs(title = "Time Series Plot", x = "Interval", y = "Average Steps")
+```
+
+
+## 5. 5-minute interval containing the maximum number of steps on average
+
+```{r}
+byinterval[which(byinterval$steps==max(byinterval$steps)),]
+```
+
+
+
+
+
+
+
+# Imputing missing values
+
+## 6. Total number of missing values in the dataset
+
+```{r}
+#the total number of NAs was stored in the object actNA under loading and processing the data
+sum(actNA)
+```
+
+
+## 7. Filling in missing Values
+
+```{r}
+#My strategy is to fill the NAs with the mean of the interval. Hence i wrote a function that performs that function;
+fillNA<- function(x){replace(x,is.na(x),mean(x,na.rm = TRUE))}
+```
+
+
+## 8. Create new dataset equal to original but without NAs
+
+```{r}
+#Apply the function and head the result to view the first 6 rows of the  new dataset
+activitynew<-activity %>% group_by(interval) %>% mutate(steps= fillNA(steps))
+head(activitynew)
+```
+
+
+## 9. Histogram of total number of steps taken each day of the new dataset
+
+```{r}
+#Select the date and steps columns from the new data
+maindata<-activitynew %>% select(date, steps) %>% group_by(date) %>% summarise(steps= sum(steps))
+
+#view part of the data
+head(maindata,20)
+
+#plot the histogram
+hist(maindata$steps,xlab = "Steps", main = "Total Daily Steps", col = "pink", breaks = 20)
+```
+
+
+## 10. Mean and Median of total number of steps taken per day of the new dataset
+
+```{r}
+#mean of total number of steps
+mean(maindata$steps)
+
+#median of total number of steps
+median(maindata$steps)
+```
+
+
+## 11. Compare and determine impact of adding the NAs to the mean and median to the old and new dataset
+
+```{r}
+#old mean
+mean(bydate$steps)
+
+#new mean
+mean(maindata$steps)
+```
+
+There was no noticable difference in the means
+
+```{r}
+#old median
+median(bydate$steps)
+
+#new median
+median(maindata$steps)
+```
+
+There was a slight increase in the median
+
+
+
+
+
+
+
+# Are there differences in activity patterns between weekdays and weekends
+
+## 12. Factor variable indicating weekdays and weekends
+
+```{r}
+maindata$date <- as.Date(maindata$date)
+#extracting the weekdays
+maindata$weekday<-weekdays(maindata$date)
+
+#Extracting the weekends
+maindata$weekend<- ifelse(maindata$weekday=="Saturday" | maindata$weekday=="Sunday", "weekend", "weekday")
+```
+
+
+## 13. Panel plot containing time series plot of new data
+
+```{r}
+weekendweekday<-aggregate(maindata$steps, by=list(maindata$weekend,maindata$weekday),mean)
+names(weekendweekday)<-c("steps","weekday","interval")
+
+ggplot(weekendweekday,aes(x = interval,y = steps,color= weekday))+geom_line()+labs(title = "Comparison of Average Number of Steps")
